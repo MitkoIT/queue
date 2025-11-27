@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const jwt = require('jsonwebtoken');
 const app = express();
 const jobs = new Map();
 require('dotenv').config();
@@ -8,6 +9,48 @@ let jobId = 1;
 let isQueueFree = true;
 
 app.use(express.json());
+
+class Api {
+  constructor() {
+    const API_TOKEN = process.env.MITKO_API_TOKEN;
+    const API_KEY   = process.env.MITKO_API_KEY;
+
+    const payload = {
+      token: API_TOKEN,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 3600
+    };
+
+    this.token = jwt.sign(payload, API_KEY, { algorithm: 'HS256' });
+  }
+
+  async call(app, route, method, content, fireAndForget) {
+    try {
+      //route = `api${route}`;
+      const response = await axios.post(
+        `http://10.0.0.33/mitko_api/gate`,
+        {app, route, method, content, fireAndForget},
+        {headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+          'X-App-Origin': process.env.APP_NAME ?? 'queue'
+        }}
+      );
+
+      console.log(response.data);
+    } catch (err) {
+      console.error(err.message);
+    }
+  }
+}
+
+const api = new Api();
+
+/*(async () => {
+  const gates = await api.call('mitko_api', '/gates', 'GET');
+  console.log('gates');
+  console.log(gates);
+})();*/
 
 async function request(job) {
   try {
@@ -30,7 +73,14 @@ const queue = async () => {
         job.status = 'working';
         //console.log('isQueueFree: ', isQueueFree);
 
-        await request(job);
+        await api.call(
+          'pat_panel_producentow',
+          `/${job.url}`,
+          'POST',
+          {job: job.data}
+        );
+
+        //await request(job);
 
         isQueueFree = true;
         job.status = 'done';
