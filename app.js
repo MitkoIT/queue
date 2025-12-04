@@ -38,6 +38,7 @@ class Api {
       );
 
       console.log(response.data);
+      return response.data;
     } catch (err) {
       console.error(err.message);
     }
@@ -73,18 +74,17 @@ const queue = async () => {
         job.status = 'working';
         //console.log('isQueueFree: ', isQueueFree);
 
-        await api.call(
+        const response = await api.call(
           'pat_panel_producentow',
           `/${job.url}`,
           'POST',
-          {job: job.data}
+          job.data
         );
-
-        //await request(job);
 
         isQueueFree = true;
         job.status = 'done';
-        //console.log('isQueueFree: ', isQueueFree);
+        job.response = response;
+        console.log(job);
       }
     }
   }
@@ -117,7 +117,22 @@ const getTime = () => {
 }
 
 app.get('/api/jobs', (request, response) => {
-  response.json({jobs: [...jobs]});
+  const page = request.query.page;
+  const elementsPerPage = 10;
+
+  if (jobs.size === 0) {
+    return response.json({jobs: []});
+  }
+
+  if (page) {
+    const slicedJobs = Array.from(jobs).slice(
+      (page - 1) * elementsPerPage,
+      page * elementsPerPage
+    );
+    return response.json({jobs: slicedJobs});
+  } else {
+    return response.json({jobs: [...jobs]});
+  }
 });
 
 app.get('/api/jobs/:id', (request, response) => {
@@ -132,9 +147,9 @@ app.post('/api/jobs', (request, response) => {
       id: jobId++,
       at: getTime(),
       status: 'pending',
-      app: request.body.job.app,
-      url: request.body.job.url,
-      data: request.body.job.data
+      app: request.body.app,
+      url: request.body.url,
+      data: request.body.data
     };
 
     jobs.set(job.id, job);
