@@ -17,8 +17,8 @@ class Api {
 
     const payload = {
       token: API_TOKEN,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 3600
+      //iat: Math.floor(Date.now() / 1000),
+      //exp: Math.floor(Date.now() / 1000) + 3600
     };
 
     this.token = jwt.sign(payload, API_KEY, { algorithm: 'HS256' });
@@ -47,24 +47,21 @@ class Api {
 
 const api = new Api();
 
-/*(async () => {
-  const gates = await api.call('mitko_api', '/gates', 'GET');
+(async () => {
+  /*const gates = await api.call('mitko_api', '/gates', 'GET');
   console.log('gates');
-  console.log(gates);
-})();*/
+  console.log(gates);*/
 
-async function request(job) {
-  try {
-    const response = await axios.post(
-      `http://10.0.1.8/pp4/${job.url}`,
-      {job: job.data}
-    );
+  /*const response = await api.call(
+    'pat_panel_producentow',
+    `struktura_magazynow/test`,
+    'POST',
+    {test: 'aaaa'}
+  );
 
-    console.log(response.data);
-  } catch (err) {
-    console.error(err.message);
-  }
-}
+  console.log(response);
+  aaab*/
+})();
 
 const queue = async () => {
   if (isQueueFree) {
@@ -75,7 +72,7 @@ const queue = async () => {
         //console.log('isQueueFree: ', isQueueFree);
 
         const response = await api.call(
-          'pat_panel_producentow',
+          'panel_producentow',
           `/${job.url}`,
           'POST',
           job.data
@@ -118,18 +115,38 @@ const getTime = () => {
 
 app.get('/api/jobs', (request, response) => {
   const page = request.query.page;
+  const status = request.query.status;
   const elementsPerPage = 10;
 
   if (jobs.size === 0) {
     return response.json({jobs: []});
   }
 
-  if (page) {
-    const slicedJobs = Array.from(jobs).slice(
-      (page - 1) * elementsPerPage,
-      page * elementsPerPage
-    );
-    return response.json({jobs: slicedJobs});
+  if (page || status) {
+    let sliced = Array.from(jobs.values());
+
+    if (page) {
+      sliced = sliced.slice(
+        (page - 1) * elementsPerPage,
+        page * elementsPerPage
+      );
+    }
+
+    if (status) {
+      if (status === "pending") {
+        sliced = sliced.filter(job => job.status === "pending");
+      }
+
+      if (status === "working") {
+        sliced = sliced.filter(job => job.status === "working");
+      }
+
+      if (status === "done") {
+        sliced = sliced.filter(job => job.status === "done");
+      }
+    }
+    
+    return response.json({jobs: sliced});
   } else {
     return response.json({jobs: [...jobs]});
   }
